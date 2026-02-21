@@ -1,0 +1,429 @@
+{
+  "info": {
+    "name": "Catalyst → Meraki Onboarding API",
+    "description": "Test collection for the Cisco Catalyst 9K → Meraki Dashboard onboarding backend.\n\nSetup:\n1. Set the `base_url` variable to your server (default: http://localhost:8000)\n2. Fill in `meraki_api_key`, `org_id`, and `network_id` collection variables\n3. Run the requests in order, or use the Collection Runner for the full flow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
+  },
+  "variable": [
+    { "key": "base_url",       "value": "http://localhost:8000",        "type": "string" },
+    { "key": "meraki_api_key", "value": "YOUR_MERAKI_API_KEY_HERE",     "type": "string" },
+    { "key": "org_id",         "value": "YOUR_ORG_ID_HERE",             "type": "string" },
+    { "key": "network_id",     "value": "YOUR_NETWORK_ID_HERE",         "type": "string" },
+    { "key": "switch_host",    "value": "192.168.1.10",                 "type": "string" },
+    { "key": "switch_user",    "value": "admin",                        "type": "string" },
+    { "key": "switch_pass",    "value": "Cisco123!",                    "type": "string" },
+    { "key": "job_id",         "value": "",                             "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1 — System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health",
+            "description": "Verify the API server is running."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status ok', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.equal('ok');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API Docs",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/docs",
+            "description": "Open Swagger UI — view all endpoints interactively."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 — Meraki API Utilities",
+      "item": [
+        {
+          "name": "Verify API Key + Org",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/meraki/verify?api_key={{meraki_api_key}}&org_id={{org_id}}",
+              "query": [
+                { "key": "api_key", "value": "{{meraki_api_key}}" },
+                { "key": "org_id",  "value": "{{org_id}}" }
+              ]
+            },
+            "description": "Verify your Meraki API key has access to the given org. Run this first to validate credentials before a bulk job."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('API key valid', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.valid).to.be.true;",
+                  "  console.log('Org name:', body.org_name);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Networks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/meraki/networks?api_key={{meraki_api_key}}&org_id={{org_id}}",
+              "query": [
+                { "key": "api_key", "value": "{{meraki_api_key}}" },
+                { "key": "org_id",  "value": "{{org_id}}" }
+              ]
+            },
+            "description": "List all networks in the org. Use this to find the correct network_id for onboarding."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.be.an('array');",
+                  "  console.log('Networks found:', body.length);",
+                  "  body.forEach(n => console.log(' -', n.id, n.name));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify API Key — Invalid Key (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/meraki/verify?api_key=invalid-key-000&org_id={{org_id}}",
+              "query": [
+                { "key": "api_key", "value": "invalid-key-000" },
+                { "key": "org_id",  "value": "{{org_id}}" }
+              ]
+            },
+            "description": "Negative test — invalid API key should return 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('valid is false', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.valid).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 — Single Device Check",
+      "item": [
+        {
+          "name": "Check Device — Device Config Mode",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/check",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"host\": \"{{switch_host}}\",\n  \"username\": \"{{switch_user}}\",\n  \"password\": \"{{switch_pass}}\",\n  \"port\": 22,\n  \"mode\": \"device\"\n}"
+            },
+            "description": "Run full SSH prerequisite check on a single switch in Device Configuration mode.\nNote: This will issue 'service meraki connect' on the switch."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has status field', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(['done','failed','checking']).to.include(body.status);",
+                  "  console.log('Device status:', body.status);",
+                  "  console.log('Cloud ID:', body.cloud_id);",
+                  "  console.log('IOS XE:', body.checks?.ios_version);",
+                  "  if (body.cloud_id) pm.collectionVariables.set('last_cloud_id', body.cloud_id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Device — Cloud Config Mode",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/check",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"host\": \"{{switch_host}}\",\n  \"username\": \"{{switch_user}}\",\n  \"password\": \"{{switch_pass}}\",\n  \"port\": 22,\n  \"mode\": \"cloud\"\n}"
+            },
+            "description": "Run full SSH prerequisite check in Cloud Configuration mode.\nIncludes: show meraki compatibility, install mode, full encryption, http client source-interface checks.\nWARNING: Will issue service meraki connect and eventually factory reset if claimed to Dashboard."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Cloud mode checks present', () => {",
+                  "  const body = pm.response.json();",
+                  "  const c = body.checks;",
+                  "  console.log('Compat check:', c?.meraki_compatibility);",
+                  "  console.log('Install mode:', c?.install_mode);",
+                  "  console.log('Full encrypt:', c?.full_encryption);",
+                  "  console.log('HTTP src-if: ', c?.http_client_source);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Device — Bad Credentials (expect done/failed)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/check",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"host\": \"{{switch_host}}\",\n  \"username\": \"wronguser\",\n  \"password\": \"wrongpass\",\n  \"port\": 22,\n  \"mode\": \"device\"\n}"
+            },
+            "description": "Negative test — bad credentials should result in status=failed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is failed', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.equal('failed');",
+                  "  pm.expect(body.checks.connected).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check Device — Unreachable Host (expect failed)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/check",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"host\": \"10.255.255.255\",\n  \"username\": \"admin\",\n  \"password\": \"Cisco123!\",\n  \"port\": 22,\n  \"mode\": \"device\"\n}"
+            },
+            "description": "Negative test — unreachable host should fail gracefully with SSH timeout."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 (graceful fail)', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is failed', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.equal('failed');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 — Bulk Onboarding",
+      "item": [
+        {
+          "name": "Start Bulk Job",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/bulk",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meraki_api_key\": \"{{meraki_api_key}}\",\n  \"org_id\": \"{{org_id}}\",\n  \"network_id\": \"{{network_id}}\",\n  \"add_atomically\": false,\n  \"devices\": [\n    {\n      \"host\": \"{{switch_host}}\",\n      \"username\": \"{{switch_user}}\",\n      \"password\": \"{{switch_pass}}\",\n      \"port\": 22,\n      \"mode\": \"device\"\n    }\n  ]\n}"
+            },
+            "description": "Enqueue a bulk onboarding job. Returns a job_id immediately.\nThe job runs SSH checks on all devices then calls the Meraki API to claim them."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns job_id', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.job_id).to.be.a('string');",
+                  "  pm.collectionVariables.set('job_id', body.job_id);",
+                  "  console.log('Job ID:', body.job_id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Poll Job Status",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/jobs/{{job_id}}",
+            "description": "Poll the status of the bulk job. Run repeatedly until status is 'done'.\nUse the Collection Runner with a delay to poll automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "console.log('Job status:', body.status);",
+                  "console.log('Completed:', body.completed, '/', body.total);",
+                  "console.log('Succeeded:', body.succeeded, '| Failed:', body.failed);",
+                  "",
+                  "if (body.status === 'done') {",
+                  "  pm.test('All devices completed', () => {",
+                  "    pm.expect(body.completed).to.equal(body.total);",
+                  "  });",
+                  "  body.results?.forEach(r => {",
+                  "    console.log(' Device:', r.host, '| Status:', r.status, '| Cloud ID:', r.cloud_id);",
+                  "  });",
+                  "  if (body.meraki_claim_result) console.log('Org claim: OK');",
+                  "  if (body.meraki_network_result) console.log('Network add: OK');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List All Jobs",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/jobs",
+            "description": "List all bulk jobs and their current statuses."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.be.an('array');",
+                  "  body.forEach(j => console.log(j.job_id, j.status, j.completed + '/' + j.total));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Poll Non-existent Job (expect 404)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/jobs/invalid-job-id-00000",
+            "description": "Negative test — polling a non-existent job_id should return 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Bulk Job — Multiple Devices Mixed Modes",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/bulk",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meraki_api_key\": \"{{meraki_api_key}}\",\n  \"org_id\": \"{{org_id}}\",\n  \"network_id\": \"{{network_id}}\",\n  \"add_atomically\": false,\n  \"devices\": [\n    {\n      \"host\": \"192.168.1.10\",\n      \"username\": \"admin\",\n      \"password\": \"Cisco123!\",\n      \"port\": 22,\n      \"mode\": \"device\"\n    },\n    {\n      \"host\": \"192.168.1.11\",\n      \"username\": \"admin\",\n      \"password\": \"Cisco123!\",\n      \"port\": 22,\n      \"mode\": \"device\"\n    },\n    {\n      \"host\": \"192.168.1.20\",\n      \"username\": \"netops\",\n      \"password\": \"Meraki456!\",\n      \"port\": 22,\n      \"mode\": \"cloud\",\n      \"secret\": \"EnableSecret!\"\n    }\n  ]\n}"
+            },
+            "description": "Bulk job with 3 devices — 2 in Device Config mode, 1 in Cloud Config mode.\nUpdate the IPs and credentials to match your environment."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('job_id', body.job_id);",
+                  "console.log('Bulk job started:', body.job_id, '| Devices:', body.total);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bulk — Invalid API Key (expect job to fail API phase)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/bulk",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meraki_api_key\": \"invalid-key-00000\",\n  \"org_id\": \"{{org_id}}\",\n  \"network_id\": \"{{network_id}}\",\n  \"add_atomically\": false,\n  \"devices\": [\n    {\n      \"host\": \"{{switch_host}}\",\n      \"username\": \"{{switch_user}}\",\n      \"password\": \"{{switch_pass}}\",\n      \"mode\": \"device\"\n    }\n  ]\n}"
+            },
+            "description": "Negative test — SSH should succeed but Meraki API phase should fail with invalid key."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 (job accepted)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('job_id', body.job_id);",
+                  "console.log('Job ID (poll to see API failure):', body.job_id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

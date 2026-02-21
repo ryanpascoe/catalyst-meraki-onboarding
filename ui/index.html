@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catalyst → Meraki</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0e13;--surface:#111820;--border:#1e2d3d;--accent:#00d4ff;
+    --green:#00e676;--yellow:#ffd600;--orange:#ff9800;--red:#ff4444;
+    --muted:#3a5068;--text:#c8dcea;--text-dim:#5a7a94;--semi:#ff9800;
+    --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:40px 40px;opacity:0.22;pointer-events:none;z-index:0;}
+  #root{position:relative;z-index:1;}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--border);background:rgba(10,14,19,0.92);backdrop-filter:blur(8px);position:sticky;top:0;z-index:100;}
+  .logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;color:var(--accent);}
+  .logo span{color:var(--text-dim);font-weight:300;}
+  .logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;box-shadow:0 0 8px var(--accent);}
+  .logo-dot.semi{background:var(--semi);box-shadow:0 0 8px var(--semi);}
+
+  .mode-switcher{display:flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+  .ms-btn{padding:7px 18px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.6px;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:var(--text-dim);transition:all .18s;display:flex;align-items:center;gap:6px;}
+  .ms-btn.active-full{background:rgba(0,212,255,0.12);color:var(--accent);}
+  .ms-btn.active-semi{background:rgba(255,152,0,0.12);color:var(--semi);}
+  .ms-div{width:1px;background:var(--border);align-self:stretch;}
+
+  .stat-bar{display:flex;gap:18px;font-size:11px;color:var(--text-dim);}
+  .stat{display:flex;align-items:center;gap:5px;}
+  .stat-val{color:var(--text);font-weight:500;}
+  .stat-val.green{color:var(--green);}
+  .stat-val.red{color:var(--red);}
+  .stat-val.orange{color:var(--orange);}
+
+  .mode-banner{padding:7px 24px;font-size:11px;letter-spacing:0.4px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
+  .mode-banner.full{background:rgba(0,212,255,0.04);color:var(--accent);}
+  .mode-banner.semi{background:rgba(255,152,0,0.05);color:var(--semi);}
+  .banner-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+
+  .layout{display:grid;grid-template-columns:340px 1fr;height:calc(100vh - 86px);}
+
+  .panel-left{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+  .p-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+  .p-title{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .p-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .field{margin-bottom:9px;}
+  .field label{display:block;font-size:10px;color:var(--text-dim);letter-spacing:.8px;text-transform:uppercase;margin-bottom:3px;}
+  input,select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;border-radius:3px;outline:none;transition:border-color .15s;}
+  input:focus,select:focus{border-color:var(--accent);}
+  input::placeholder{color:var(--muted);}
+  .frow{display:grid;grid-template-columns:1fr 72px;gap:8px;}
+
+  .dev-toggle{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-radius:3px;overflow:hidden;}
+  .dev-btn{padding:6px;text-align:center;font-family:var(--mono);font-size:11px;cursor:pointer;background:var(--bg);color:var(--text-dim);border:none;transition:all .15s;}
+  .dev-btn.active{background:var(--surface);color:var(--accent);}
+
+  .btn{padding:7px 14px;font-family:var(--mono);font-size:12px;font-weight:500;border:none;border-radius:3px;cursor:pointer;transition:all .15s;letter-spacing:.4px;}
+  .btn-primary{background:var(--accent);color:#000;width:100%;padding:9px;}
+  .btn-primary:hover{background:#33ddff;}
+  .btn-primary:disabled{background:var(--muted);color:var(--text-dim);cursor:not-allowed;}
+  .btn-semi{background:var(--semi);color:#000;width:100%;padding:9px;}
+  .btn-semi:hover{background:#ffb74d;}
+  .btn-semi:disabled{background:var(--muted);color:var(--text-dim);cursor:not-allowed;}
+  .btn-secondary{background:transparent;color:var(--text-dim);border:1px solid var(--border);font-size:11px;padding:5px 10px;}
+  .btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-ghost{background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;}
+
+  .device-list{flex:1;overflow-y:auto;}
+  .dev-item{padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+  .dev-item:hover{background:rgba(0,212,255,0.02);}
+  .dev-item.sel{background:rgba(0,212,255,0.05);border-left:2px solid var(--accent);padding-left:14px;}
+  .dev-item.sel.semi{border-left-color:var(--semi);background:rgba(255,152,0,0.04);}
+  .dev-host{font-size:13px;font-weight:500;}
+  .dev-meta{font-size:11px;color:var(--text-dim);margin-top:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+
+  .sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;display:inline-block;}
+  .sdot.idle{background:var(--muted);}
+  .sdot.checking{background:var(--yellow);animation:pulse 1s infinite;}
+  .sdot.waiting,.sdot.ready{background:var(--orange);animation:pulse 1.2s infinite;}
+  .sdot.onboarding{background:var(--accent);animation:pulse 1s infinite;}
+  .sdot.done{background:var(--green);}
+  .sdot.failed{background:var(--red);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.2;}}
+
+  .pbar{height:2px;background:var(--border);border-radius:1px;margin-top:6px;overflow:hidden;}
+  .pfill{height:100%;border-radius:1px;transition:width .3s;background:var(--accent);}
+  .pfill.done{background:var(--green);}
+  .pfill.failed{background:var(--red);}
+  .pfill.waiting{background:var(--orange);}
+
+  .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:2px;border:1px solid;}
+  .badge-device{color:var(--accent);border-color:rgba(0,212,255,.3);background:rgba(0,212,255,.08);}
+  .badge-cloud{color:var(--yellow);border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.08);}
+  .badge-semi{color:var(--semi);border-color:rgba(255,152,0,.3);background:rgba(255,152,0,.08);}
+
+  .cloud-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.25);color:var(--green);font-size:10px;padding:2px 8px;border-radius:2px;margin-top:4px;font-weight:500;cursor:pointer;}
+  .cloud-pill:hover{background:rgba(0,230,118,.15);}
+
+  .semi-trig{margin-top:6px;padding:4px 10px;font-family:var(--mono);font-size:10px;font-weight:600;background:rgba(255,152,0,.1);border:1px solid rgba(255,152,0,.35);color:var(--semi);border-radius:2px;cursor:pointer;letter-spacing:.4px;transition:all .15s;text-transform:uppercase;}
+  .semi-trig:hover{background:rgba(255,152,0,.2);}
+  .semi-trig:disabled{opacity:.4;cursor:not-allowed;}
+
+  .panel-right{display:flex;flex-direction:column;overflow:hidden;}
+  .pr-header{padding:11px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;min-height:48px;}
+  .pr-title{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .pr-actions{display:flex;gap:8px;align-items:center;}
+
+  .tab-bar{display:flex;border-bottom:1px solid var(--border);}
+  .tab{padding:9px 20px;font-size:11px;color:var(--text-dim);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;letter-spacing:.5px;text-transform:uppercase;}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab.on.semi{color:var(--semi);border-bottom-color:var(--semi);}
+
+  .checks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(192px,1fr));gap:7px;padding:14px 20px;border-bottom:1px solid var(--border);overflow-y:auto;}
+  .chk{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:3px;font-size:11px;}
+  .chk-icon{font-size:13px;flex-shrink:0;}
+  .chk-lbl{color:var(--text-dim);flex:1;}
+  .chk-val{font-size:10px;font-weight:500;}
+  .cv-pass{color:var(--green);}
+  .cv-fail{color:var(--red);}
+  .cv-pend{color:var(--muted);}
+
+  .log-term{flex:1;overflow-y:auto;padding:12px 20px;font-size:12px;line-height:1.75;}
+  .log-line{display:flex;gap:12px;}
+  .log-t{color:var(--muted);flex-shrink:0;}
+  .log-m{word-break:break-all;}
+
+  /* Semi: service meraki panel */
+  .sm-panel{padding:16px 20px;border-bottom:1px solid var(--border);background:rgba(255,152,0,.03);}
+  .sm-title{font-size:11px;color:var(--semi);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;}
+  .sm-desc{font-size:11px;color:var(--text-dim);margin-bottom:10px;line-height:1.6;}
+  .sm-btn{padding:9px 24px;font-family:var(--mono);font-size:12px;font-weight:600;background:var(--semi);color:#000;border:none;border-radius:3px;cursor:pointer;letter-spacing:.5px;transition:all .15s;}
+  .sm-btn:hover{background:#ffb74d;}
+  .sm-btn:disabled{background:var(--muted);color:var(--text-dim);cursor:not-allowed;}
+
+  /* Semi: cloud ID big display */
+  .cid-display{margin:14px 20px;padding:14px;background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.2);border-radius:3px;}
+  .cid-lbl{font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+  .cid-val{font-size:20px;color:var(--green);font-weight:600;letter-spacing:3px;margin-bottom:10px;}
+  .cid-copy{font-family:var(--mono);font-size:11px;padding:5px 12px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);color:var(--green);border-radius:2px;cursor:pointer;transition:all .15s;}
+  .cid-copy:hover{background:rgba(0,230,118,.2);}
+  .cid-hint{font-size:10px;color:var(--text-dim);margin-top:8px;line-height:1.6;}
+
+  .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-dim);}
+  .empty-icon{font-size:36px;opacity:.2;}
+  .empty-text{font-size:11px;text-align:center;line-height:2;}
+
+  .dropzone{border:1px dashed var(--border);border-radius:3px;padding:10px;text-align:center;font-size:11px;color:var(--text-dim);cursor:pointer;transition:all .15s;}
+  .dropzone:hover{border-color:var(--accent);color:var(--accent);}
+
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--surface);border:1px solid var(--border);padding:11px 16px;border-radius:4px;font-size:12px;z-index:999;display:flex;align-items:center;gap:10px;animation:slideUp .2s ease;max-width:320px;}
+  @keyframes slideUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  /* ── Config Analysis tab ── */
+  .ca-wrap{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:16px;}
+  .ca-trigger{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:4px;}
+  .ca-trigger-text{font-size:11px;color:var(--text-dim);line-height:1.7;}
+  .ca-trigger-text strong{color:var(--text);font-weight:500;}
+  .ca-btn{padding:9px 22px;font-family:var(--mono);font-size:12px;font-weight:600;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.35);color:var(--accent);border-radius:3px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .ca-btn:hover{background:rgba(0,212,255,0.2);}
+  .ca-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .ca-summary{display:flex;gap:10px;flex-wrap:wrap;}
+  .ca-pill{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:3px;border:1px solid;font-size:12px;font-weight:500;}
+  .ca-pill.trans{background:rgba(0,230,118,.07);border-color:rgba(0,230,118,.3);color:var(--green);}
+  .ca-pill.supp{background:rgba(0,212,255,.07);border-color:rgba(0,212,255,.3);color:var(--accent);}
+  .ca-pill.part{background:rgba(255,214,0,.07);border-color:rgba(255,214,0,.3);color:var(--yellow);}
+  .ca-pill.nosp{background:rgba(255,68,68,.07);border-color:rgba(255,68,68,.3);color:var(--red);}
+  .ca-pill-n{font-size:18px;font-weight:600;}
+  .ca-pill-lbl{font-size:10px;letter-spacing:.5px;text-transform:uppercase;opacity:.8;}
+  .ca-cat-title{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);padding:6px 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+  .ca-cat-icon{font-size:13px;}
+  .ca-row{display:grid;grid-template-columns:28px 1fr 130px;gap:0;align-items:start;padding:8px 10px;border-radius:3px;transition:background .1s;cursor:default;}
+  .ca-row:hover{background:var(--surface);}
+  .ca-row.not-detected{opacity:.35;}
+  .ca-status-dot{width:8px;height:8px;border-radius:50%;margin-top:3px;flex-shrink:0;}
+  .ca-status-dot.TRANSLATABLE{background:var(--green);}
+  .ca-status-dot.SUPPORTED{background:var(--accent);}
+  .ca-status-dot.PARTIAL{background:var(--yellow);}
+  .ca-status-dot.NOT_SUPPORTED{background:var(--red);}
+  .ca-feat-name{font-size:12px;color:var(--text);}
+  .ca-feat-val{font-size:10px;color:var(--text-dim);margin-top:2px;font-style:italic;}
+  .ca-guidance{font-size:11px;color:var(--text-dim);line-height:1.6;padding:4px 0 0 0;}
+  .ca-status-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:2px;font-weight:600;letter-spacing:.4px;text-align:center;white-space:nowrap;}
+  .ca-status-badge.TRANSLATABLE{background:rgba(0,230,118,.12);color:var(--green);border:1px solid rgba(0,230,118,.3);}
+  .ca-status-badge.SUPPORTED{background:rgba(0,212,255,.12);color:var(--accent);border:1px solid rgba(0,212,255,.3);}
+  .ca-status-badge.PARTIAL{background:rgba(255,214,0,.12);color:var(--yellow);border:1px solid rgba(255,214,0,.3);}
+  .ca-status-badge.NOT_SUPPORTED{background:rgba(255,68,68,.1);color:var(--red);border:1px solid rgba(255,68,68,.3);}
+  .ca-filter-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .ca-filter-btn{padding:4px 12px;font-family:var(--mono);font-size:10px;font-weight:500;border-radius:2px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-dim);transition:all .12s;letter-spacing:.4px;text-transform:uppercase;}
+  .ca-filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08);}
+  .ca-filter-btn.f-trans.active{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.08);}
+  .ca-filter-btn.f-supp.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08);}
+  .ca-filter-btn.f-part.active{border-color:var(--yellow);color:var(--yellow);background:rgba(255,214,0,.08);}
+  .ca-filter-btn.f-nosp.active{border-color:var(--red);color:var(--red);background:rgba(255,68,68,.08);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const { useState, useRef, useCallback, useEffect } = React;
+const WS  = `ws://${location.host}`;
+const API = `http://${location.host}`;
+const ts  = () => new Date().toLocaleTimeString('en-AU',{hour12:false});
+
+const COLOR_MAP={'#00e676':'var(--green)','#ffd600':'var(--yellow)','#ff4444':'var(--red)','#00c8ff':'var(--accent)','#ff9800':'var(--semi)','#4a6080':'var(--text-dim)'};
+const mc = c => COLOR_MAP[c]||c||'var(--text)';
+
+const CHECKS_COMMON=[
+  {k:'connected',l:'SSH Connection',i:'🔌'},
+  {k:'iosOk',l:'IOS XE Version',i:'📦',vk:'iosVersion'},
+  {k:'ntpConfigured',l:'NTP Configured',i:'🕐'},
+  {k:'ntpSynced',l:'NTP Synced',i:'⏱'},
+  {k:'dnsConfigured',l:'DNS',i:'🌐'},
+  {k:'dnsResolvable',l:'Meraki DNS',i:'📡'},
+  {k:'merakiReachable',l:'Meraki Reachable',i:'☁'},
+];
+const CHECKS_DEVICE=[
+  {k:'aaaNewModel',l:'AAA New-Model',i:'🔐'},
+  {k:'ipRouting',l:'IP Routing',i:'🔀'},
+  {k:'domainLookup',l:'Domain Lookup',i:'🔍'},
+];
+const CHECKS_CLOUD=[
+  {k:'compatibilityCheck',l:'Meraki Compat',i:'✅'},
+  {k:'installMode',l:'Install Mode',i:'💾'},
+  {k:'fullEncryption',l:'Full Encryption',i:'🔒'},
+  {k:'httpClientSource',l:'HTTP Source IF',i:'📶'},
+];
+const CHECKS_AUTO=[
+  {k:'cloudId',l:'Cloud ID',i:'🆔',cid:true},
+  {k:'modeValidated',l:'Mode Validated',i:'🏷'},
+];
+
+function getChecks(dev, appMode){
+  let c=[...CHECKS_COMMON];
+  if(dev.mode==='device') c=[...c,...CHECKS_DEVICE];
+  if(dev.mode==='cloud')  c=[...c,...CHECKS_CLOUD];
+  if(appMode==='full')    c=[...c,...CHECKS_AUTO];
+  return c;
+}
+
+function mkDev({host,username,password,secret,port,mode,isOffline,configText}){
+  return {
+    id:`${host||'file'}-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
+    host:host||'(config file)',username,password,secret:secret||null,
+    port:parseInt(port)||22,mode,
+    isOffline:!!isOffline,configText:configText||null,
+    status:'idle',progress:0,
+    logs:[],checks:{},cloudId:null,modeValidated:null,prereqPass:null,
+  };
+}
+
+// ── Category metadata ────────────────────────────────────────────────────────
+const CAT_META = {
+  switch:     {label:'Switch', icon:'🔀'},
+  port:       {label:'Ports', icon:'🔌'},
+  routing:    {label:'Routing', icon:'🗺'},
+  security:   {label:'Security', icon:'🔐'},
+  qos:        {label:'QoS', icon:'📊'},
+  management: {label:'Management', icon:'⚙'},
+};
+const STATUS_LABEL = {
+  TRANSLATABLE:'Auto-translatable',SUPPORTED:'Manual config',
+  PARTIAL:'Partial support',NOT_SUPPORTED:'Not supported',
+};
+
+function ConfigAnalysisTab({dev, analysis, onRun, filter, setFilter}){
+  const e=React.createElement;
+  const loading = analysis?.loading;
+  const data    = analysis?.data;
+  const err     = analysis?.error;
+  const isOffline    = dev.isOffline;
+  const isDeviceMode = dev.mode === 'device';
+
+  // In Device Config mode every detected feature is fully supported — override status to TRANSLATABLE for display
+  const effectiveStatus = (f) => isDeviceMode && f.detected ? 'TRANSLATABLE' : f.status;
+  const effectiveLabel  = (f) => isDeviceMode && f.detected ? 'Supported ✓' : STATUS_LABEL[f.status];
+
+  // Device config mode: collapse everything to one green pill
+  const displaySummary = isDeviceMode && data
+    ? { n_translatable: data.n_detected, n_supported: 0, n_partial: 0, n_not_supported: 0 }
+    : data;
+
+  // Group detected features — in device mode, filter only really applies as ALL
+  const grouped = {};
+  if(data){
+    const shown = data.features.filter(f => {
+      if(!f.detected) return false;
+      if(filter==='ALL') return true;
+      return effectiveStatus(f) === filter;
+    });
+    shown.forEach(f=>{
+      if(!grouped[f.category]) grouped[f.category]=[];
+      grouped[f.category].push(f);
+    });
+  }
+
+  // Static checks panel for offline devices
+  const sc = data?.static_checks;
+
+  return e('div',{className:'ca-wrap'},
+
+    // Trigger panel
+    e('div',{className:'ca-trigger'},
+      e('div',{className:'ca-trigger-text'},
+        e('strong',null,'Config Compatibility Analysis'),e('br',null),
+        isOffline
+          ? e(React.Fragment,null,'Analyses the uploaded IOS XE config file — maps features and checks static config items (NTP, DNS, AAA, routing).')
+          : e(React.Fragment,null,'Pulls the running config from ',e('strong',null,dev.host),' and maps every IOS XE feature to its Meraki Cloud Configuration equivalent.'),
+        isDeviceMode&&e(React.Fragment,null,
+          e('br',null),e('br',null),
+          e('span',{style:{color:'var(--green)',fontSize:10}},
+            '✓ Device Config mode — all detected configurations are supported for onboarding.'
+          ),
+        ),
+      ),
+      e('button',{className:'ca-btn',onClick:onRun,disabled:loading},
+        loading?'⏳ Analysing…':'▶ Run Analysis'),
+    ),
+
+    // Error
+    err&&e('div',{style:{padding:'10px 14px',background:'rgba(255,68,68,.07)',border:'1px solid rgba(255,68,68,.25)',borderRadius:3,color:'var(--red)',fontSize:12}},
+      `✗ ${err}`),
+
+    // Static checks panel (offline config file only)
+    sc&&e('div',{style:{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:4,padding:'12px 16px'}},
+      e('div',{className:'ca-cat-title',style:{marginBottom:8}},e('span',{className:'ca-cat-icon'},'📋'),'Static Config Checks',
+        e('span',{style:{fontSize:10,color:'var(--text-dim)',marginLeft:8,textTransform:'none',letterSpacing:0}},'— parsed from config file (live connectivity checks not available)'),
+      ),
+      e('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(210px,1fr))',gap:6}},
+        Object.entries(sc).map(([k,v])=>{
+          const META={
+            ntpConfigured:   {l:'NTP Server Configured',  i:'🕐'},
+            dnsConfigured:   {l:'DNS Name-Server',         i:'🌐'},
+            aaaNewModel:     {l:'AAA New-Model',           i:'🔐'},
+            ipRouting:       {l:'IP Routing',              i:'🔀'},
+            domainLookup:    {l:'Domain Lookup Enabled',   i:'🔍'},
+            httpClientSrc:   {l:'HTTP Client Source IF',   i:'📶'},
+            iosVersion:      {l:'IOS XE Version (file)',   i:'📦'},
+          }[k]||{l:k,i:'⚙'};
+          const ok = v===true||(typeof v==='string'&&v.length>0&&v!=='false');
+          const val = typeof v==='string'&&v.length>0 ? v : (ok?'Present':'Not found');
+          return e('div',{key:k,className:'chk'},
+            e('span',{className:'chk-icon'},META.i),
+            e('span',{className:'chk-lbl'},META.l),
+            e('span',{className:`chk-val ${ok?'cv-pass':'cv-fail'}`},val),
+          );
+        }),
+      ),
+    ),
+
+    // Summary pills — device config mode shows all detected as green
+    displaySummary&&e('div',{className:'ca-summary'},
+      e('div',{className:'ca-pill trans'},
+        e('span',{className:'ca-pill-n'},displaySummary.n_translatable),
+        e('span',{className:'ca-pill-lbl'},isDeviceMode?'All supported':'Auto-translatable'),
+      ),
+      !isDeviceMode&&e('div',{className:'ca-pill supp'},e('span',{className:'ca-pill-n'},displaySummary.n_supported),e('span',{className:'ca-pill-lbl'},'Manual config')),
+      !isDeviceMode&&e('div',{className:'ca-pill part'},e('span',{className:'ca-pill-n'},displaySummary.n_partial),e('span',{className:'ca-pill-lbl'},'Partial support')),
+      !isDeviceMode&&e('div',{className:'ca-pill nosp'},e('span',{className:'ca-pill-n'},displaySummary.n_not_supported),e('span',{className:'ca-pill-lbl'},'Not supported')),
+    ),
+
+    // Filter bar — hide in device config mode (everything is green)
+    data&&!isDeviceMode&&e('div',{className:'ca-filter-bar'},
+      e('span',{style:{fontSize:10,color:'var(--text-dim)',marginRight:4}},'SHOW:'),
+      ['ALL','TRANSLATABLE','SUPPORTED','PARTIAL','NOT_SUPPORTED'].map(f=>
+        e('button',{
+          key:f,
+          className:`ca-filter-btn f-${f.toLowerCase().replace('_','')} ${filter===f?'active':''}`,
+          onClick:()=>setFilter(f),
+        },{ALL:'All detected',TRANSLATABLE:'Translatable',SUPPORTED:'Supported',PARTIAL:'Partial',NOT_SUPPORTED:'Not supported'}[f])
+      ),
+    ),
+
+    // Feature table grouped by category
+    data&&Object.keys(CAT_META).map(cat=>{
+      const rows = grouped[cat];
+      if(!rows||!rows.length) return null;
+      const meta = CAT_META[cat];
+      return e('div',{key:cat},
+        e('div',{className:'ca-cat-title'},e('span',{className:'ca-cat-icon'},meta.icon),meta.label),
+        rows.map(f=>{
+          const eff = effectiveStatus(f);
+          return e('div',{key:f.key,className:'ca-row'},
+            e('span',{className:`ca-status-dot ${eff}`}),
+            e('div',null,
+              e('div',{className:'ca-feat-name'},f.name),
+              f.detected_val&&e('div',{className:'ca-feat-val'},f.detected_val),
+              e('div',{className:'ca-guidance'},isDeviceMode
+                ? 'Supported in Device Config mode — configuration will be preserved during onboarding.'
+                : f.guidance),
+            ),
+            e('span',{className:`ca-status-badge ${eff}`},effectiveLabel(f)),
+          );
+        }),
+      );
+    }),
+
+    // Empty state
+    !data&&!loading&&!err&&e('div',{style:{textAlign:'center',color:'var(--text-dim)',fontSize:11,padding:'30px 0',lineHeight:2}},
+      isOffline
+        ? e(React.Fragment,null,
+            '📄 Offline config file loaded.',e('br',null),
+            'Run the analysis to check static config items and feature compatibility.',e('br',null),
+            e('span',{style:{color:'var(--yellow)'}},
+              '⚠ Live checks (NTP sync, DNS resolution, connectivity) require a live device.'))
+        : e(React.Fragment,null,
+            '📋 Run the analysis to see a full feature compatibility report.',e('br',null),
+            'SSH credentials from the device card are used — no additional setup needed.'),
+    ),
+  );
+}
+
+function App(){
+  const [appMode,setAppMode]=useState('semi');
+  const [apiKey,setApiKey]=useState('');
+  const [orgId,setOrgId]=useState('');
+  const [host,setHost]=useState('');
+  // fullDevices: devices promoted from Readiness Check into Automated Onboarding
+  const [fullDevices,setFullDevices]=useState([]);
+  const [fullSel,setFullSel]=useState(null);
+  const [fullTab,setFullTab]=useState('log');
+  const [orgNetworks,setOrgNetworks]=useState([]); // [{id,name,url}] fetched when apiKey+orgId set
+  const [networksLoading,setNetworksLoading]=useState(false);
+  const [user,setUser]=useState('');
+  const [pass,setPass]=useState('');
+  const [secret,setSecret]=useState('');
+  const [port,setPort]=useState('22');
+  const [devMode,setDevMode]=useState('device');
+  const [configInputMode,setConfigInputMode]=useState('live'); // 'live' | 'file'
+  const [manualConfigText,setManualConfigText]=useState('');
+  const [devices,setDevices]=useState([]);
+  const [sel,setSel]=useState(null);
+  const [tab,setTab]=useState('log');
+  const [toast,setToast]=useState(null);
+  const wsRefs=useRef({});
+  const logEnd=useRef(null);
+  const isSemi=appMode==='semi';
+  // Per-device config analysis results: { [deviceId]: { loading, data, error } }
+  const [analyses,setAnalyses]=useState({});
+  const [caFilter,setCaFilter]=useState('ALL'); // ALL | TRANSLATABLE | SUPPORTED | PARTIAL | NOT_SUPPORTED
+
+  useEffect(()=>{ logEnd.current?.scrollIntoView({behavior:'smooth'}); },[devices,sel,tab]);
+
+  // Auto-fetch org networks whenever API key + Org ID are both populated
+  useEffect(()=>{
+    if(!apiKey||!orgId){ setOrgNetworks([]); return; }
+    setNetworksLoading(true);
+    fetch(`${API}/api/meraki/networks?api_key=${encodeURIComponent(apiKey)}&org_id=${encodeURIComponent(orgId)}`)
+      .then(r=>r.ok?r.json():Promise.reject(r.status))
+      .then(nets=>{
+        setOrgNetworks(nets.map(n=>({id:n.id,name:n.name,url:n.url||''})));
+        setNetworksLoading(false);
+      })
+      .catch(()=>{ setOrgNetworks([]); setNetworksLoading(false); });
+  },[apiKey,orgId]);
+
+  const showToast=(msg,color='var(--accent)')=>{ setToast({msg,color}); setTimeout(()=>setToast(null),3500); };
+  const copy=(t)=>{ navigator.clipboard.writeText(t); showToast('Copied!','var(--green)'); };
+
+  const updDev=useCallback((id,p)=>setDevices(prev=>prev.map(d=>d.id===id?{...d,...p}:d)),[]);
+  const addLog=useCallback((id,msg,color)=>setDevices(prev=>prev.map(d=>d.id===id?{...d,logs:[...d.logs,{time:ts(),msg,color}]}:d)),[]);
+  const updFullDev=useCallback((id,p)=>setFullDevices(prev=>prev.map(d=>d.id===id?{...d,...p}:d)),[]);
+  const addFullLog=useCallback((id,msg,color)=>setFullDevices(prev=>prev.map(d=>d.id===id?{...d,logs:[...d.logs,{time:ts(),msg,color}]}:d)),[]);
+
+  // Set per-device network from the pre-fetched orgNetworks list
+  const selectDevNetwork=(devId,netId)=>{
+    const net=orgNetworks.find(n=>n.id===netId);
+    if(!net) return;
+    setFullDevices(prev=>prev.map(d=>d.id===devId?{...d,netName:net.name,netId:net.id,netUrl:net.url}:d));
+  };
+  // Promote a readiness-checked device into the Automated Onboarding list
+  const promoteToFull=(dev)=>{
+    const already=fullDevices.find(d=>d.host===dev.host&&d.port===dev.port);
+    if(already){
+      // Already promoted — just switch to full mode and select it
+      setFullSel(already.id); setAppMode('full');
+      showToast(`${dev.host} already in Automated Onboarding`,'var(--yellow)');
+      return;
+    }
+    const newId=`full-${dev.id}`;
+    const promoted={
+      ...dev,                      // carry everything: checks, logs, cloudId, prereqPass, progress
+      id:newId,
+      status:'idle',               // reset run status — onboarding hasn't started yet
+      progress: dev.prereqPass ? 100 : dev.progress,
+      netName:'',
+      netId:'',
+      sourceId:dev.id,             // link back to readiness device for analysis lookup
+    };
+    setFullDevices(prev=>[...prev,promoted]);
+    // Copy any config analysis results into analyses under the new full-device ID
+    setAnalyses(prev=>{
+      const srcAnalysis=prev[dev.id];
+      if(!srcAnalysis) return prev;
+      return {...prev,[newId]:srcAnalysis};
+    });
+    setFullSel(newId);
+    setFullTab('checks');          // open to checks tab so carried-over results are immediately visible
+    setAppMode('full');
+    showToast(`✓ ${dev.host} added to Automated Onboarding`,'var(--green)');
+  };
+
+  const addDevice=()=>{
+    if(configInputMode==='file'){
+      if(!manualConfigText.trim()) return showToast('No config loaded','var(--red)');
+      const d=mkDev({host:'',username:'',password:'',secret:'',port:22,mode:devMode,isOffline:true,configText:manualConfigText});
+      setDevices(prev=>[...prev,d]); setSel(d.id); setTab('analysis');
+      setManualConfigText('');
+      return;
+    }
+    if(!host||!user||!pass) return showToast('Host, username and password required','var(--red)');
+    const d=mkDev({host,username:user,password:pass,secret,port,mode:devMode});
+    setDevices(prev=>[...prev,d]); setSel(d.id); setTab('log');
+    setHost(''); setUser(''); setPass(''); setSecret('');
+  };
+
+  const handleConfigFile=ev=>{
+    const f=ev.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=e=>{ setManualConfigText(e.target.result); showToast(`✓ Loaded: ${f.name}`,'var(--green)'); };
+    r.readAsText(f); ev.target.value='';
+  };
+
+  const importCSV=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      const lines=ev.target.result.split('\n').filter(Boolean);
+      const hdr=lines[0].split(',').map(h=>h.trim());
+      const devs=lines.slice(1).map(l=>{
+        const cols=l.split(',').map(c=>c.trim());
+        const row={}; hdr.forEach((h,i)=>row[h]=cols[i]||'');
+        return mkDev({host:row.host,username:row.username,password:row.password,secret:row.secret,port:row.port,mode:row.mode||'device'});
+      }).filter(d=>d.host&&d.username&&d.password);
+      setDevices(prev=>[...prev,...devs]);
+      showToast(`✓ Imported ${devs.length} device(s)`,'var(--green)');
+    };
+    r.readAsText(f); e.target.value='';
+  };
+
+  const runChecks=useCallback((dev)=>{
+    wsRefs.current[dev.id]?.close();
+    updDev(dev.id,{status:'checking',progress:5,logs:[],checks:{},cloudId:null,modeValidated:null,prereqPass:null});
+    if(appMode==='semi'){ setSel(dev.id); setTab('checks'); }
+    const ws=new WebSocket(`${WS}/ws/check`);
+    wsRefs.current[dev.id]=ws;
+    ws.onopen=()=>ws.send(JSON.stringify({
+      host:dev.host,username:dev.username,password:dev.password,
+      port:dev.port,mode:dev.mode,secret:dev.secret,
+      skip_connect: appMode==='semi',
+    }));
+    ws.onmessage=e=>{
+      const msg=JSON.parse(e.data);
+      if(msg.type==='log') addLog(dev.id,msg.msg,mc(msg.color));
+      else if(msg.type==='check'){
+        // Promote cloudId immediately to dev.cloudId so the pill/display updates in real time
+        const extra = msg.key==='cloudId' && msg.value ? {cloudId: msg.value} : {};
+        setDevices(prev=>prev.map(d=>d.id===dev.id?{...d,checks:{...d.checks,[msg.key]:msg.value},...extra}:d));
+      }
+      else if(msg.type==='progress') updDev(dev.id,{progress:msg.pct});
+      else if(msg.type==='done'){
+        const res=msg.result;
+        if(appMode==='semi'){
+          const ok=res.status==='ready'||res.status==='done';
+          // Do NOT spread res.checks — backend uses snake_case keys (ios_ok, ntp_configured)
+          // while the UI accumulates camelCase keys via individual 'check' WS messages.
+          // Overwriting would blank out all check results.
+          updDev(dev.id,{status:ok?'waiting':'failed',progress:100,prereqPass:ok});
+          addLog(dev.id,ok?'── All prerequisites passed. Device is ready for Meraki onboarding. ──':'── Prereq checks failed. ──',ok?'var(--semi)':'var(--red)');
+        } else {
+          updDev(dev.id,{status:res.status,cloudId:res.cloud_id,progress:res.status==='done'?70:100});
+          if(res.status==='done'&&res.cloud_id){
+            addLog(dev.id,`Cloud ID: ${res.cloud_id}`,'var(--green)');
+            if(apiKey&&orgId&&dev.netId) runApiPhase(dev,res.cloud_id);
+          }
+        }
+      } else if(msg.type==='error'){
+        updDev(dev.id,{status:'failed',progress:100});
+        addLog(dev.id,`Error: ${msg.msg}`,'var(--red)');
+      }
+    };
+    ws.onerror=()=>{ addLog(dev.id,'WebSocket error — is the backend running?','var(--red)'); updDev(dev.id,{status:'failed'}); };
+    ws.onclose=()=>{ delete wsRefs.current[dev.id]; };
+  },[appMode,apiKey,orgId,updDev,addLog]);
+
+  const triggerServiceMeraki=useCallback(async(dev)=>{
+    updDev(dev.id,{status:'onboarding',progress:65});
+    addLog(dev.id,'── Retrieving Cloud ID (service meraki connect) ──','var(--semi)');
+    try{
+      const r=await fetch(`${API}/api/service-meraki-connect`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({host:dev.host,username:dev.username,password:dev.password,port:dev.port,secret:dev.secret,mode:dev.mode}),
+      });
+      const d=await r.json();
+      if(d.cloud_id){
+        updDev(dev.id,{status:'done',cloudId:d.cloud_id,progress:100});
+        addLog(dev.id,`✓ Cloud ID: ${d.cloud_id}`,'var(--green)');
+        addLog(dev.id,'Cloud ID recorded. Device has not been onboarded to any network or organisation.','var(--text-dim)');
+      } else {
+        updDev(dev.id,{status:'failed',progress:100});
+        addLog(dev.id,`✗ Failed: ${d.error||'unknown error'}`,'var(--red)');
+      }
+    }catch(e){
+      updDev(dev.id,{status:'failed',progress:100});
+      addLog(dev.id,`✗ ${e.message}`,'var(--red)');
+    }
+  },[updDev,addLog]);
+
+  const runApiPhase=useCallback(async(dev,cloudId)=>{
+    addFullLog(dev.id,'── Meraki Dashboard API ──','var(--accent)');
+    try{
+      addFullLog(dev.id,`Claiming ${cloudId} into org…`,'var(--text-dim)');
+      const c1=await fetch(`${API}/api/meraki/claim`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({api_key:apiKey,org_id:orgId,cloud_ids:[cloudId]})});
+      if(!c1.ok) throw new Error(`Org claim failed ${c1.status}`);
+      addFullLog(dev.id,'✓ Claimed into org inventory','var(--green)');
+      updFullDev(dev.id,{progress:80});
+      await new Promise(r=>setTimeout(r,15000));
+      addFullLog(dev.id,`Adding to network…`,'var(--text-dim)');
+      const c2=await fetch(`${API}/api/meraki/network-claim`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({api_key:apiKey,network_id:dev.netId,
+          devices:[{cloud_id:cloudId,mode:dev.mode,username:dev.username,password:dev.password,secret:dev.secret}],
+          add_atomically:false})});
+      if(!c2.ok) throw new Error(`Network claim failed ${c2.status}`);
+      addFullLog(dev.id,`✓ Added to network (${dev.mode==='device'?'monitored':'managed'})`,'var(--green)');
+      updFullDev(dev.id,{progress:90});
+      addFullLog(dev.id,'Validating mode…','var(--text-dim)');
+      const exp=dev.mode==='device'?'monitored':'managed';
+      let validated=false;
+      for(let i=0;i<8;i++){
+        await new Promise(r=>setTimeout(r,15000));
+        const vr=await fetch(`${API}/api/meraki/verify-mode?api_key=${encodeURIComponent(apiKey)}&org_id=${encodeURIComponent(orgId)}&cloud_id=${encodeURIComponent(cloudId)}&expected_mode=${exp}`);
+        const vd=await vr.json();
+        addFullLog(dev.id,`Mode check ${i+1}/8 → "${vd.actual}"`,vd.match?'var(--green)':'var(--text-dim)');
+        if(vd.match){validated=true;break;}
+      }
+      updFullDev(dev.id,{modeValidated:validated,progress:100,checks:{modeValidated:validated}});
+      addFullLog(dev.id,validated?'✓ Mode validated — onboarding complete!':'⚠ Mode unconfirmed — check Dashboard',validated?'var(--green)':'var(--yellow)');
+    }catch(err){
+      addFullLog(dev.id,`✗ ${err.message}`,'var(--red)');
+      updFullDev(dev.id,{progress:100});
+    }
+  },[apiKey,orgId,updFullDev,addLog]);
+
+  const runAll=()=>{
+    const ready=devices.filter(d=>['idle','failed'].includes(d.status));
+    if(!ready.length) return showToast('No idle devices to run','var(--yellow)');
+    ready.forEach(d=>runChecks(d));
+  };
+  const runAnalysis=useCallback(async(dev)=>{
+    setAnalyses(prev=>({...prev,[dev.id]:{loading:true,data:null,error:''}}));
+    try{
+      const body = dev.isOffline
+        ? {config_text:dev.configText}
+        : {host:dev.host,username:dev.username,password:dev.password,port:dev.port,secret:dev.secret};
+      const r=await fetch(`${API}/api/analyze-config`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
+      });
+      if(!r.ok){const e=await r.json();throw new Error(e.detail||`HTTP ${r.status}`);}
+      const data=await r.json();
+      setAnalyses(prev=>({...prev,[dev.id]:{loading:false,data,error:''}}));
+    }catch(e){
+      setAnalyses(prev=>({...prev,[dev.id]:{loading:false,data:null,error:e.message}}));
+    }
+  },[]);
+
+  const runFullOnboarding=useCallback((dev)=>{
+    if(!dev.netId){ showToast(`Set network for ${dev.host} first`,'var(--yellow)'); return; }
+    wsRefs.current[dev.id]?.close();
+    updFullDev(dev.id,{status:'checking',progress:5,logs:[],cloudId:null,modeValidated:null});
+    setFullSel(dev.id); setFullTab('log');
+    const ws=new WebSocket(`${WS}/ws/check`);
+    wsRefs.current[dev.id]=ws;
+    ws.onopen=()=>ws.send(JSON.stringify({
+      host:dev.host,username:dev.username,password:dev.password,
+      port:dev.port,mode:dev.mode,secret:dev.secret,
+      skip_connect:false,
+    }));
+    ws.onmessage=ev=>{
+      const msg=JSON.parse(ev.data);
+      if(msg.type==='log') addFullLog(dev.id,msg.msg,mc(msg.color));
+      else if(msg.type==='check'){
+        const extra=msg.key==='cloudId'&&msg.value?{cloudId:msg.value}:{};
+        setFullDevices(prev=>prev.map(d=>d.id===dev.id?{...d,checks:{...d.checks,[msg.key]:msg.value},...extra}:d));
+      }
+      else if(msg.type==='progress') updFullDev(dev.id,{progress:msg.pct});
+      else if(msg.type==='done'){
+        const res=msg.result;
+        updFullDev(dev.id,{status:res.status,cloudId:res.cloud_id,progress:res.status==='done'?70:100});
+        if(res.status==='done'&&res.cloud_id){
+          addFullLog(dev.id,`Cloud ID: ${res.cloud_id}`,'var(--green)');
+          if(apiKey&&orgId&&dev.netId) runApiPhase(dev,res.cloud_id);
+        }
+      } else if(msg.type==='error'){
+        updFullDev(dev.id,{status:'failed',progress:100});
+        addFullLog(dev.id,`Error: ${msg.msg}`,'var(--red)');
+      }
+    };
+    ws.onerror=()=>{ addFullLog(dev.id,'WebSocket error — is the backend running?','var(--red)'); updFullDev(dev.id,{status:'failed'}); };
+    ws.onclose=()=>{ delete wsRefs.current[dev.id]; };
+  },[apiKey,orgId,updFullDev,addFullLog,runApiPhase]);
+
+  const removeFullDev=id=>{ wsRefs.current[id]?.close(); setFullDevices(d=>d.filter(x=>x.id!==id)); if(fullSel===id) setFullSel(null); };
+
+  const removeDev=id=>{ wsRefs.current[id]?.close(); setDevices(d=>d.filter(x=>x.id!==id)); if(sel===id) setSel(null); };
+
+  const selDev=devices.find(d=>d.id===sel);
+  const selFullDev=fullDevices.find(d=>d.id===fullSel);
+  const stats={ total:devices.length, done:devices.filter(d=>d.status==='done').length, failed:devices.filter(d=>d.status==='failed').length, running:devices.filter(d=>['checking','onboarding'].includes(d.status)).length, waiting:devices.filter(d=>['waiting','ready'].includes(d.status)).length };
+  const fullStats={ total:fullDevices.length, done:fullDevices.filter(d=>d.status==='done').length, failed:fullDevices.filter(d=>d.status==='failed').length, running:fullDevices.filter(d=>['checking','onboarding'].includes(d.status)).length };
+
+  // ── render ──────────────────────────────────────────────────────────────
+  const e=React.createElement;
+  return e(React.Fragment,null,
+
+    // Header
+    e('header',null,
+      e('div',{className:'logo'},e('div',{className:`logo-dot${isSemi?' semi':''}`}),'CATALYST',e('span',null,'→'),'MERAKI'),
+      e('div',{className:'mode-switcher'},
+        e('button',{className:`ms-btn${appMode==='semi'?' active-semi':''}`,onClick:()=>setAppMode('semi')},e('span',null,'🔍'),'Readiness Check'),
+        e('div',{className:'ms-div'}),
+        e('button',{className:`ms-btn${appMode==='full'?' active-full':''}`,onClick:()=>setAppMode('full')},e('span',null,'⚡'),'Automated Onboarding'),
+      ),
+      e('div',{className:'stat-bar'},
+        e('div',{className:'stat'},'TOTAL ',e('span',{className:'stat-val'},isSemi?stats.total:fullStats.total)),
+        e('div',{className:'stat'},'DONE ',e('span',{className:'stat-val green'},isSemi?stats.done:fullStats.done)),
+        e('div',{className:'stat'},'FAILED ',e('span',{className:`stat-val${(isSemi?stats.failed:fullStats.failed)>0?' red':''}`},isSemi?stats.failed:fullStats.failed)),
+        isSemi&&stats.waiting>0&&e('div',{className:'stat'},'AWAITING ',e('span',{className:'stat-val orange'},stats.waiting)),
+      )
+    ),
+
+    // Mode banner
+    e('div',{className:`mode-banner ${appMode}`},
+      e('div',{className:'banner-dot'}),
+      isSemi?'MIGRATION READINESS CHECK — Validates device prerequisites for Meraki onboarding. Optionally retrieves the Cloud ID for your records.'
+            :'AUTOMATED ONBOARDING — Runs prereqs, service meraki connect, API claim, and mode validation automatically.',
+    ),
+
+    // Layout
+    e('div',{className:'layout'},
+
+      // Left panel
+      e('div',{className:'panel-left'},
+
+        // API config (full mode only — global API key + org)
+        !isSemi&&e('div',{className:'p-section'},
+          e('div',{className:'p-title'},'Meraki Dashboard API'),
+          e('div',{className:'field'},e('label',null,'API Key'),e('input',{type:'password',placeholder:'your-api-key',value:apiKey,onChange:ev=>setApiKey(ev.target.value)})),
+          e('div',{className:'field'},e('label',null,'Organization ID'),e('input',{type:'text',placeholder:'123456',value:orgId,onChange:ev=>setOrgId(ev.target.value)})),
+          (!apiKey||!orgId)&&e('div',{style:{fontSize:10,color:'var(--text-dim)',marginTop:4,lineHeight:1.5}},'Enter API key and Org ID, then set a network per device below.'),
+        ),
+
+        // ── Readiness Check: Add Device + Bulk Import ──────────────────────
+        isSemi&&e('div',{className:'p-section'},
+          e('div',{className:'p-title'},'Add Device'),
+          e('div',{className:'field'},e('label',null,'Input Mode'),
+            e('div',{className:'dev-toggle'},
+              e('button',{className:`dev-btn${configInputMode==='live'?' active':''}`,onClick:()=>setConfigInputMode('live')},'🔌 Live Device'),
+              e('button',{className:`dev-btn${configInputMode==='file'?' active':''}`,onClick:()=>setConfigInputMode('file')},'📄 Config File'),
+            )
+          ),
+          configInputMode==='live'&&e(React.Fragment,null,
+            e('div',{className:'field'},e('label',null,'Host / IP'),e('input',{type:'text',placeholder:'192.168.1.10',value:host,onChange:ev=>setHost(ev.target.value),onKeyDown:ev=>ev.key==='Enter'&&addDevice()})),
+            e('div',{className:'frow'},
+              e('div',{className:'field'},e('label',null,'Username'),e('input',{type:'text',placeholder:'admin',value:user,onChange:ev=>setUser(ev.target.value)})),
+              e('div',{className:'field'},e('label',null,'Port'),e('input',{type:'text',value:port,onChange:ev=>setPort(ev.target.value)})),
+            ),
+            e('div',{className:'field'},e('label',null,'Password'),e('input',{type:'password',placeholder:'••••••••',value:pass,onChange:ev=>setPass(ev.target.value)})),
+            e('div',{className:'field'},e('label',null,'Enable Secret (optional)'),e('input',{type:'password',placeholder:'••••••••',value:secret,onChange:ev=>setSecret(ev.target.value)})),
+          ),
+          configInputMode==='file'&&e(React.Fragment,null,
+            e('div',{className:'field'},
+              e('label',{htmlFor:'cfg-file-in',className:'dropzone',style:{display:'block',cursor:'pointer'}},
+                manualConfigText?'✓ Config loaded — click to replace':'📄 Click to upload IOS XE config file'
+              ),
+              e('input',{id:'cfg-file-in',type:'file',accept:'.txt,.conf,.cfg,text/*',style:{display:'none'},onChange:handleConfigFile}),
+            ),
+            e('div',{style:{fontSize:10,color:'var(--text-dim)',lineHeight:1.6,marginTop:2}},
+              '⚠ Offline mode: Config Analysis only. SSH checks and Cloud ID generation are not available for uploaded config files.'
+            ),
+          ),
+          e('div',{className:'field'},e('label',null,'Mode'),
+            e('div',{className:'dev-toggle'},
+              e('button',{className:`dev-btn${devMode==='device'?' active':''}`,onClick:()=>setDevMode('device')},'⚙ Device Config'),
+              e('button',{className:`dev-btn${devMode==='cloud'?' active':''}`,onClick:()=>setDevMode('cloud')},'☁ Cloud Config'),
+            )
+          ),
+          e('button',{className:'btn btn-primary',onClick:addDevice,disabled:configInputMode==='file'&&!manualConfigText},
+            configInputMode==='file'?'+ Add Config File':'+ Add Device'
+          ),
+        ),
+        isSemi&&configInputMode!=='file'&&e('div',{className:'p-section'},
+          e('div',{className:'p-title'},'Bulk Import'),
+          e('label',{className:'dropzone',htmlFor:'csv-in'},'📂 Click to import CSV'),
+          e('input',{id:'csv-in',type:'file',accept:'.csv',style:{display:'none'},onChange:importCSV}),
+          e('div',{style:{fontSize:10,color:'var(--text-dim)',marginTop:5}},'Columns: host, username, password, port, mode, secret'),
+          devices.length>0&&e('button',{
+            className:'btn btn-semi',style:{marginTop:10},
+            onClick:runAll,disabled:stats.running>0,
+          },stats.running>0?`Running ${stats.running}…`:`▶ Run Readiness Check (${devices.filter(d=>['idle','failed'].includes(d.status)).length})`),
+        ),
+
+        // ── Automated Onboarding: promoted device list ─────────────────────
+        !isSemi&&fullDevices.length===0&&e('div',{style:{padding:'16px',color:'var(--text-dim)',fontSize:11,textAlign:'center',lineHeight:2}},
+          '⚡ No devices yet.',e('br',null),'Run a Readiness Check and use',e('br',null),
+          '"Add to Automated Onboarding" to populate this list.',
+        ),
+        !isSemi&&fullDevices.length>0&&e('div',{className:'p-section'},
+          e('div',{className:'p-title'},'Onboarding Queue'),
+          e('button',{
+            className:'btn btn-primary',style:{width:'100%',marginBottom:8},
+            onClick:()=>{
+              const ready=fullDevices.filter(d=>['idle','failed'].includes(d.status)&&d.netId);
+              if(!ready.length) showToast('No ready devices (check network is set)','var(--yellow)');
+              else ready.forEach(d=>runFullOnboarding(d));
+            },
+            disabled:fullStats.running>0||!apiKey||!orgId,
+          },fullStats.running>0?`⏳ Onboarding ${fullStats.running}…`:`⚡ Onboard All (${fullDevices.filter(d=>['idle','failed'].includes(d.status)&&d.netId).length})`),
+        ),
+
+        // Device list — readiness check devices (semi) or promoted devices (full)
+        isSemi&&e('div',{className:'device-list'},
+          devices.length===0
+            ?e('div',{style:{padding:16,color:'var(--text-dim)',fontSize:11,textAlign:'center'}},'No devices added yet')
+            :devices.map(dev=>
+              e('div',{key:dev.id,className:`dev-item${sel===dev.id?' sel semi':''}`,onClick:()=>setSel(dev.id)},
+                e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
+                  e('div',{className:'dev-host'},dev.host),
+                  e('button',{className:'btn-ghost',onClick:ev=>{ev.stopPropagation();removeDev(dev.id);}},'×'),
+                ),
+                e('div',{className:'dev-meta'},
+                  e('span',{className:`sdot ${dev.status==='waiting'?'waiting':dev.status}`}),
+                  e('span',{style:{color:dev.status==='waiting'?'var(--semi)':'var(--text-dim)'}},dev.status==='waiting'?'awaiting trigger':dev.status==='ready'?'ready for onboarding':dev.status),
+                  e('span',{className:`badge badge-${dev.mode}`},dev.mode),
+                  dev.isOffline&&e('span',{className:'badge',style:{color:'var(--yellow)',borderColor:'rgba(255,214,0,.3)',background:'rgba(255,214,0,.07)'}},'📄 offline'),
+                ),
+                !dev.isOffline&&dev.cloudId&&e('div',{className:'cloud-pill',onClick:ev=>{ev.stopPropagation();copy(dev.cloudId);},title:'Click to copy'},dev.cloudId,' ⎘'),
+                dev.status==='waiting'&&!dev.isOffline&&e('button',{
+                  className:'semi-trig',onClick:ev=>{ev.stopPropagation();setSel(dev.id);triggerServiceMeraki(dev);updDev(dev.id,{status:'ready'});},
+                },'▶ Retrieve Cloud ID for Manual Onboarding'),
+                dev.status==='ready'&&e('div',{style:{fontSize:10,color:'var(--green)',marginTop:3,fontWeight:500}},'✓ Ready for onboarding'),
+                e('div',{className:'pbar'},e('div',{className:`pfill ${dev.status}`,style:{width:`${dev.progress}%`}})),
+              )
+            )
+        ),
+        !isSemi&&e('div',{className:'device-list'},
+          fullDevices.map(dev=>
+            e('div',{key:dev.id,className:`dev-item${fullSel===dev.id?' sel':''}`,onClick:()=>setFullSel(dev.id)},
+              e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
+                e('div',{className:'dev-host'},dev.host),
+                e('button',{className:'btn-ghost',onClick:ev=>{ev.stopPropagation();removeFullDev(dev.id);}},'×'),
+              ),
+              e('div',{className:'dev-meta'},
+                e('span',{className:`sdot ${dev.status}`}),
+                e('span',{style:{color:'var(--text-dim)'}},dev.status),
+                e('span',{className:`badge badge-${dev.mode}`},dev.mode),
+              ),
+              dev.netId
+                ?e('div',{style:{fontSize:10,color:'var(--green)',marginTop:3}},`✓ ${dev.netName}`)
+                :e('div',{style:{fontSize:10,color:'var(--yellow)',marginTop:3}},'⚠ No network set — click to configure'),
+              dev.cloudId&&e('div',{className:'cloud-pill',onClick:ev=>{ev.stopPropagation();copy(dev.cloudId);},title:'Click to copy'},dev.cloudId,' ⎘'),
+              dev.modeValidated===true&&e('div',{style:{fontSize:10,color:'var(--green)',marginTop:3}},'✓ mode validated'),
+              e('div',{className:'pbar'},e('div',{className:`pfill ${dev.status}`,style:{width:`${dev.progress}%`}})),
+            )
+          )
+        ),
+      ),
+
+      // Right panel — split between readiness check (semi) and automated onboarding (full)
+      e('div',{className:'panel-right'},
+
+        // ── READINESS CHECK right panel ──────────────────────────────────
+        isSemi&&(selDev?e(React.Fragment,null,
+          e('div',{className:'pr-header'},
+            e('div',{className:'pr-title'},
+              e('span',{className:`sdot ${selDev.status}`}),
+              selDev.host,
+              e('span',{style:{color:'var(--text-dim)'}},`port ${selDev.port}`),
+              e('span',{className:`badge badge-${selDev.mode}`},selDev.mode==='device'?'⚙ Device Config':'☁ Cloud Config'),
+              e('span',{className:'badge badge-semi'},'🔍 Readiness Check'),
+            ),
+            e('div',{className:'pr-actions'},
+              !selDev.isOffline&&e('button',{
+                className:'btn btn-secondary',
+                style:{borderColor:'rgba(255,152,0,.4)',color:'var(--semi)'},
+                onClick:()=>runChecks(selDev),
+                disabled:['checking','onboarding'].includes(selDev.status),
+              },selDev.status==='idle'?'▶ Run Readiness Check':['checking','onboarding'].includes(selDev.status)?'⏳ Running…':'↺ Re-run'),
+            )
+          ),
+          selDev.isOffline&&e('div',{style:{padding:'10px 20px',background:'rgba(255,214,0,.05)',borderBottom:'1px solid rgba(255,214,0,.15)',display:'flex',alignItems:'center',gap:10,fontSize:11,color:'var(--yellow)'}},
+            e('span',null,'📄'),
+            e('span',null,'Offline config file — SSH checks and Cloud ID generation are not available. Use ',e('strong',null,'Config Analysis'),' tab to inspect feature compatibility.'),
+          ),
+          // Ready panel with both Retrieve Cloud ID and Add to Automated Onboarding
+          selDev.status==='waiting'&&selDev.prereqPass&&!selDev.isOffline&&
+            e('div',{className:'sm-panel'},
+              e('div',{className:'sm-title'},'🔍 Ready — Device passed all prerequisite checks'),
+              e('div',{className:'sm-desc'},
+                'All prerequisite checks passed. The device is ready for Meraki onboarding.',e('br',null),e('br',null),
+                'Retrieve the Cloud ID to record the device identifier, or add it directly to the Automated Onboarding queue.',
+              ),
+              e('div',{style:{display:'flex',gap:10,flexWrap:'wrap'}},
+                e('button',{className:'sm-btn',onClick:()=>{triggerServiceMeraki(selDev);updDev(selDev.id,{status:'ready'});}},'▶ Retrieve Cloud ID for Manual Onboarding'),
+                e('button',{
+                  className:'sm-btn',
+                  style:{background:'var(--accent)',color:'#000'},
+                  onClick:()=>{updDev(selDev.id,{status:'ready'});promoteToFull(selDev);},
+                },'⚡ Add to Automated Onboarding'),
+              ),
+            ),
+          selDev.cloudId&&!selDev.isOffline&&
+            e('div',{className:'cid-display'},
+              e('div',{className:'cid-lbl'},'Cloud ID — device identifier (not yet claimed)'),
+              e('div',{className:'cid-val'},selDev.cloudId),
+              e('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:6}},
+                e('button',{className:'cid-copy',onClick:()=>copy(selDev.cloudId)},'⎘ Copy Cloud ID'),
+                e('button',{
+                  className:'cid-copy',
+                  style:{background:'rgba(0,212,255,.1)',borderColor:'rgba(0,212,255,.25)',color:'var(--accent)'},
+                  onClick:()=>{updDev(selDev.id,{status:'ready'});promoteToFull(selDev);},
+                },'⚡ Add to Automated Onboarding'),
+              ),
+              e('div',{className:'cid-hint'},'No action has been taken — the device has not been added to any network or organisation.'),
+            ),
+          e('div',{className:'tab-bar'},
+            e('div',{className:`tab${tab==='log'?' on semi':''}`,onClick:()=>setTab('log')},'Session Log'),
+            e('div',{className:`tab${tab==='checks'?' on semi':''}`,onClick:()=>setTab('checks')},'Checks'),
+            e('div',{className:`tab${tab==='analysis'?' on':''}`,onClick:()=>setTab('analysis')},'Config Analysis'),
+          ),
+          tab==='checks'
+            ?e('div',{className:'checks-grid'},
+                getChecks(selDev,'semi').map(c=>{
+                  const raw=c.cid?selDev.cloudId:selDev.checks[c.k];
+                  const disp=c.vk?(selDev.checks[c.vk]||'—'):raw===true?'PASS':raw===false?'FAIL':raw||'—';
+                  const cls=raw===true?'cv-pass':raw===false?'cv-fail':raw?'cv-pass':'cv-pend';
+                  return e('div',{key:c.k,className:'chk'},e('span',{className:'chk-icon'},c.i),e('span',{className:'chk-lbl'},c.l),e('span',{className:`chk-val ${cls}`},disp));
+                }))
+          :tab==='analysis'
+            ?e(ConfigAnalysisTab,{dev:selDev,analysis:analyses[selDev.id],onRun:()=>runAnalysis(selDev),filter:caFilter,setFilter:setCaFilter})
+            :e('div',{className:'log-term'},
+                selDev.logs.length===0
+                  ?e('span',{style:{color:'var(--text-dim)'}},'Press Run Readiness Check to start…')
+                  :selDev.logs.map((l,i)=>e('div',{key:i,className:'log-line'},e('span',{className:'log-t'},l.time),e('span',{className:'log-m',style:{color:l.color}},l.msg))),
+                e('div',{ref:logEnd}),
+              ),
+        ):e('div',{className:'empty-state'},
+            e('div',{className:'empty-icon'},'🔍'),
+            e('div',{className:'empty-text'},'Migration Readiness Check mode.\nValidates that devices meet all prerequisites\nfor Meraki onboarding. No devices are claimed or\nadded to any network or organisation.'),
+          )),
+
+        // ── AUTOMATED ONBOARDING right panel ────────────────────────────
+        !isSemi&&(selFullDev?e(React.Fragment,null,
+          e('div',{className:'pr-header'},
+            e('div',{className:'pr-title'},
+              e('span',{className:`sdot ${selFullDev.status}`}),
+              selFullDev.host,
+              e('span',{style:{color:'var(--text-dim)'}},`port ${selFullDev.port}`),
+              e('span',{className:`badge badge-${selFullDev.mode}`},selFullDev.mode==='device'?'⚙ Device Config':'☁ Cloud Config'),
+            ),
+            e('div',{className:'pr-actions'},
+              e('button',{
+                className:'btn btn-secondary',
+                onClick:()=>runFullOnboarding(selFullDev),
+                disabled:['checking','onboarding'].includes(selFullDev.status)||!selFullDev.netId||!apiKey||!orgId,
+                title:!selFullDev.netId?'Set network first':!apiKey||!orgId?'Set API key and Org ID first':'',
+              },['checking','onboarding'].includes(selFullDev.status)?'⏳ Onboarding…':selFullDev.status==='idle'?'⚡ Onboard':'↺ Re-onboard'),
+            )
+          ),
+          // Per-device network config — dropdown from pre-fetched org networks
+          e('div',{style:{padding:'12px 20px',borderBottom:'1px solid var(--border)',background:'var(--surface)'}},
+            e('div',{className:'field',style:{marginBottom:0}},
+              e('label',null,'Target Network',
+                networksLoading&&e('span',{style:{marginLeft:6,fontSize:10,color:'var(--text-dim)'}},'loading…'),
+              ),
+              orgNetworks.length>0
+                ?e('select',{
+                    style:{width:'100%',background:'var(--bg)',color:'var(--text)',border:'1px solid var(--border)',borderRadius:3,padding:'5px 8px',fontSize:12},
+                    value:selFullDev.netId||'',
+                    onChange:ev=>selectDevNetwork(selFullDev.id,ev.target.value),
+                  },
+                  e('option',{value:''},'— Select a network —'),
+                  orgNetworks.map(n=>e('option',{key:n.id,value:n.id},n.name))
+                )
+                :e('div',{style:{fontSize:11,color:'var(--text-dim)',padding:'6px 0'}},
+                    !apiKey||!orgId?'Enter API Key and Org ID to load networks…':'No networks found'),
+              selFullDev.netId&&e('div',{style:{fontSize:10,color:'var(--green)',marginTop:4}},`✓ Network ID: ${selFullDev.netId}`),
+            ),
+          ),
+          // Status banner: show readiness check carry-over info or cloud ID
+          selFullDev.prereqPass&&selFullDev.sourceId&&
+            e('div',{style:{padding:'6px 20px',borderBottom:'1px solid var(--border)',background:'rgba(0,230,118,.03)',fontSize:10,color:'var(--green)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}},
+              e('span',null,'✓ Readiness checks passed — results carried over from Readiness Check'),
+              selFullDev.cloudId&&e('span',{style:{color:'var(--green)',fontWeight:600}},`Cloud ID: ${selFullDev.cloudId}`),
+            ),
+          // Dashboard link — shown once onboarding is complete
+          selFullDev.status==='done'&&selFullDev.netId&&
+            e('div',{style:{padding:'12px 20px',borderBottom:'1px solid var(--border)',background:'rgba(0,212,255,.04)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}},
+              e('div',null,
+                e('div',{style:{fontSize:11,fontWeight:600,color:'var(--green)',marginBottom:3}},'✓ Onboarding complete'),
+                e('div',{style:{fontSize:10,color:'var(--text-dim)'}},`Device claimed to ${selFullDev.netName||'network'} and mode validated`),
+              ),
+              e('a',{
+                href: selFullDev.netUrl
+                  ? `${selFullDev.netUrl.replace(/\/manage.*$/,'/manage/nodes/new_list')}`
+                  : `https://dashboard.meraki.com`,
+                target:'_blank',
+                rel:'noopener noreferrer',
+                style:{
+                  display:'inline-flex',alignItems:'center',gap:6,
+                  padding:'7px 14px',borderRadius:3,fontSize:12,fontWeight:600,
+                  background:'var(--accent)',color:'#000',textDecoration:'none',
+                  whiteSpace:'nowrap',flexShrink:0,
+                },
+              },'🔗 View in Meraki Dashboard →'),
+            ),
+
+          e('div',{className:'tab-bar'},
+            e('div',{className:`tab${fullTab==='log'?' on':''}`,onClick:()=>setFullTab('log')},'Session Log'),
+            e('div',{className:`tab${fullTab==='checks'?' on':''}`,onClick:()=>setFullTab('checks')},'Checks'),
+            e('div',{className:`tab${fullTab==='analysis'?' on':''}`,onClick:()=>setFullTab('analysis')},'Config Analysis'),
+          ),
+          fullTab==='checks'
+            ?e('div',{className:'checks-grid'},
+                getChecks(selFullDev,'full').map(c=>{
+                  const raw=c.cid?selFullDev.cloudId:selFullDev.checks[c.k];
+                  const disp=c.vk?(selFullDev.checks[c.vk]||'—'):raw===true?'PASS':raw===false?'FAIL':raw||'—';
+                  const cls=raw===true?'cv-pass':raw===false?'cv-fail':raw?'cv-pass':'cv-pend';
+                  return e('div',{key:c.k,className:'chk'},e('span',{className:'chk-icon'},c.i),e('span',{className:'chk-lbl'},c.l),e('span',{className:`chk-val ${cls}`},disp));
+                }))
+          :fullTab==='analysis'
+            ?e(ConfigAnalysisTab,{dev:selFullDev,analysis:analyses[selFullDev.id]||analyses[selFullDev.sourceId],onRun:()=>runAnalysis(selFullDev),filter:caFilter,setFilter:setCaFilter})
+            :e('div',{className:'log-term'},
+                selFullDev.logs.length===0
+                  ?e('span',{style:{color:'var(--text-dim)'}},'Press Onboard to start automated onboarding…')
+                  :selFullDev.logs.map((l,i)=>e('div',{key:i,className:'log-line'},e('span',{className:'log-t'},l.time),e('span',{className:'log-m',style:{color:l.color}},l.msg))),
+                e('div',{ref:logEnd}),
+              ),
+        ):e('div',{className:'empty-state'},
+            e('div',{className:'empty-icon'},'⚡'),
+            e('div',{className:'empty-text'},'Automated Onboarding mode.\nDevices are added here from Readiness Check\nvia "Add to Automated Onboarding".\nSet API key, Org ID and a network per device,\nthen run to complete onboarding.'),
+          )),
+      )
+    ),
+
+        toast&&e('div',{className:'toast',style:{borderColor:toast.color}},e('span',{style:{color:toast.color}},'●'),' ',toast.msg),
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
