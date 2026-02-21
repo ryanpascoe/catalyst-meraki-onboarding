@@ -26,6 +26,19 @@ A full-stack tool for migrating Cisco Catalyst 9K switches to Cisco Meraki. Comb
 
 ---
 
+## Screenshots
+
+### Readiness Check
+![Readiness Check](screenshots/readiness-check.png)
+
+### Config Compatibility Analysis
+![Config Analysis](screenshots/config-analysis.png)
+
+### Automated Onboarding
+![Automated Onboarding](screenshots/Automatedonboarding.png)
+
+---
+
 ## Architecture
 
 ```
